@@ -1,21 +1,22 @@
-service: mongodb-serverless-node-rest-api
+service: aws-node-rest-api-typescript
 
 provider:
   name: aws
   runtime: nodejs12.x
   environment:
     NODE_ENV: dev
-    ENV_RELATIVE_PATH: ../../
-  exclude:
-    - config/.env.dev
-    - config/.env.stg
-    - config/.env.pro
-  include:
-    - config/.env.dev
+    ENV_RELATIVE_PATH: ../
 
 plugins:
   - serverless-plugin-typescript 
   - serverless-offline
+
+package:
+  exclude:
+    - config/.env.stg
+    - config/.env.pro
+  include:
+    - config/.env.dev
 
 functions:
   create:
