@@ -12,3 +12,7 @@ jspm_packages
 coverage
 
 package-lock.json
+
+out-logger.json
+
+.DS_Store
