@@ -15,5 +15,4 @@ const booksSchema = new mongoose.Schema({
 });
 
 // Note: OverwriteModelError: Cannot overwrite `Books` model once compiled. error
-export const books = mongoose.models.books ||
-  mongoose.model<BooksDocument>('Books', booksSchema, process.env.DB_BOOKS_COLLECTION);
+export const books = mongoose.models.books || mongoose.model<BooksDocument>('books', booksSchema, process.env.DB_BOOKS_COLLECTION);
