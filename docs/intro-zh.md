@@ -1,5 +1,36 @@
 # 使用 TypeScript, MongoDB atlas 开发 ServerLess 后端 API
 
+这是一个对于 AWS Lambda Functions 的简单 REST API 项目，使用 TypeScript 语言编写，数据存储采用 MongoDB Atlas 云数据库，从编码到 AWS Lambda 下的单元测试，再到部署、日志调试完整的介绍了如何快速编写一个 FaaS 函数。
+
+## 本文你讲学习到
+
+* REST API with typescript
+* MongoDB Atlas data storage
+* Mocha unit tests
+* TSLint code inspection
+
+
+## 目录结构
+
+```
+├── app                               
+│   ├── contrller          # 控制层，解析用户输入数据，处理结果返回
+│   ├── model              # 数据库模型
+│   ├── service            # 业务逻辑层
+│   └── utils              # 工具类
+├── config                 # 环境变量和配置相关
+├── docs                   # 文档
+├── tests                  # 单元测试
+├── tsconfig.json          # 指定 TypeScript 编译的参数信息
+└── tslint.json            # 指定 TypeScript 代码规范
+├── .editorconfig          # 约定编辑器的代码风格
+├── .gitignore             # git 提交忽略指定文件
+├── .nycrc.json             
+├── package.json           # package.json
+├── serverless.yml         # Serverless 配置文件
+├── README.md
+```
+
 ## 插件
 
 ### serverless-offline
@@ -61,7 +92,6 @@ provider:
 ```yml
 provider:
   exclude:
-    - config/.env.dev
     - config/.env.stg
     - config/.env.pro
   include:
@@ -155,3 +185,52 @@ https://github.com/istanbuljs/nyc
 ```
 
 https://dev.to/paulasantamaria/testing-node-js-mongoose-with-an-in-memory-database-32np
+
+## AWS Lambda 查看 Serverless 函数日志
+
+### AWS 管理控制台查看
+
+* 打开 [CloudWatch 控制台的日志页面](https://console.aws.amazon.com/cloudwatch/home)。
+* 选择您的函数 (/aws/lambda/function-name) 的日志组。
+* 选择列表中的日志流。
+
+### AWS CLI 方式查看
+
+* 安装
+
+https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-install.html
+
+* 确认是否安装成功
+
+which aws 或 aws --version 命令检测是否安装成功，类似以下结果，安装成功
+
+```
+$ which aws
+/usr/local/bin/aws
+$ aws --version
+aws-cli/2.0.12 Python/3.7.4 Darwin/19.3.0 botocore/2.0.0dev16
+```
+
+* 认证
+
+安装成功，需先执行 aws configure 命令配置 aws-cli 和凭据
+
+```
+$ aws configure
+AWS Access Key ID [None]: AKIAIOSFODNN7EXAMPLE
+AWS Secret Access Key [None]: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+Default region name [None]: us-west-1
+Default output format [None]: 
+```
+
+区域名称 region 一定要配置，如果不知道的，当时 serverless deploy 的时候也有显示，可以留意下。
+
+* 终端查看
+
+```
+# 默认展示 base64 编码之后的数据
+$ aws lambda invoke --function-name aws-node-rest-api-typescript-dev-find out-logger.json --log-type Tail
+
+# base64 解码日志
+$ aws lambda invoke --function-name aws-node-rest-api-typescript-dev-find out-logger.json --log-type Tail --query 'LogResult' --output text |  base64 -d
+```
