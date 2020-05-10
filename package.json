@@ -1,11 +1,12 @@
 {
   "name": "aws-node-typescript-rest-api",
   "version": "1.0.0",
-  "description": "This is simple REST API example for AWS Lambda By Serverless framwork with TypeScript and MongoDB Altas.",
+  "description": "This is simple REST API example for AWS Lambda By Serverless framwork with TypeScript and MongoDB Atlas.",
   "main": "index.js",
   "scripts": {
     "lint": "tslint -p tsconfig.json -c tslint.json",
-    "start": "serverless offline",
+    "local": "serverless offline",
+    "deploy": "serverless deploy",
     "test": "cross-env NODE_ENV=dev ENV_RELATIVE_PATH=../ mocha -r ts-node/register tests/*.test.ts --exit",
     "coverage": "nyc --reporter lcov npm run test"
   },
@@ -46,7 +47,9 @@
   "keywords": [
     "Nodejs",
     "TypeScript",
-    "ServerLess"
+    "ServerLess",
+    "MongoDB Atlas",
+    "AWS Lambda"
   ],
   "author": "May",
   "license": "ISC",
