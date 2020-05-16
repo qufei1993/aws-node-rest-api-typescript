@@ -13,7 +13,7 @@
 
 在开始之前你需要知道 Serverless 是什么？及最基本的入门应用，在我的这篇文章 [使用 Node.js 快速开启 ServerLess Functions：入门实践指南](https://mp.weixin.qq.com/s/h8RsdDvkqqyI_WuD1vKcEw) 中介绍了 AWS Lambda 的基础应用。
 
-除此之外 19 年的 MongoDB 深圳年终大会上我投稿了文章 [使用 ServerLess, Nodejs, MongoDB Atlas cloud 构建 REST API](https://mp.weixin.qq.com/s/Ox9UcEVrb2Tfdl1B-Eh_Cw) 在这篇文章中你可以学习到，如何快速入门 MongoDB Atlas 云数据库，本篇文章也是在基于其基础之上使用 TypeScript 进行改造，同时也介绍了 AWS Lambda 下的 FaaS 应用，如何写单元测试和日志排查。
+除此之外 19 年的 MongoDB 深圳年终大会上我投稿了文章 [使用 ServerLess, Nodejs, MongoDB Atlas cloud 构建 REST API](https://mp.weixin.qq.com/s/Ox9UcEVrb2Tfdl1B-Eh_Cw) 在这篇文章中你可以学习到，如何快速入门 MongoDB Atlas 云数据库及使用 JavaScript 构建 REST API，本篇文章也是在其基础之上使用 TypeScript 进行改造，同时也介绍了 AWS Lambda 下的 FaaS 应用，如何写单元测试、如何做日志排查。
 
 ## REST API 规划
 
@@ -147,7 +147,7 @@ dotenv.config({
 * github.com/motdotla/dotenv
 * serverlesscloud.cn/best-practice/2020-03-10-serverless-env
 
-## 编码实践
+## 编码实践核心讲解
 
 ### 路由指定
 
@@ -198,8 +198,150 @@ export const create: Handler = (event: any, context: Context) => {
 export const findOne: Handler = (event: any, context: Context) => {
   return booksController.findOne(event, context);
 };
-
 ...
+```
+
+### Controller 控制器层
+
+通过路由指定和 handler 入口函数的处理，将用户的请求基于 Path 和 Method 分发至相应 Controller 层，解析用户的输入，处理后返回。
+
+这一层不应存在任何形式的 “SQL 查询”，如有需要它应该调用 Service 层处理业务，然后封装结果返回。
+
+```ts
+// app/controller/books.ts
+...
+export class BooksController extends BooksService {
+  constructor (books: Model<any>) {
+    super(books);
+  }
+
+  /**
+   * Create book
+   * @param {*} event
+   */
+  async create (event: any, context?: Context) {
+    console.log('functionName', context.functionName);
+    const params: CreateBookDTO = JSON.parse(event.body);
+
+    try {
+      const result = await this.createBook({
+        name: params.name,
+        id: params.id,
+      });
+
+      return MessageUtil.success(result);
+    } catch (err) {
+      console.error(err);
+
+      return MessageUtil.error(err.code, err.message);
+    }
+  }
+  
+  /**
+   * Query book by id
+   * @param event
+   */
+  async findOne (event: any, context: Context) {
+    // The amount of memory allocated for the function
+    console.log('memoryLimitInMB: ', context.memoryLimitInMB);
+
+    const id: number = Number(event.pathParameters.id);
+
+    try {
+      const result = await this.findOneBookById(id);
+
+      return MessageUtil.success(result);
+    } catch (err) {
+      console.error(err);
+
+      return MessageUtil.error(err.code, err.message);
+    }
+  }
+  ...
+}
+```
+
+### Service 服务层
+
+为了保证 Controller 层逻辑更加简洁，针对复杂的业务逻辑可以抽象出来做一个服务层，做到独立性、可复用性（可以被多个 Controller 层调用），这样也更有利于单元测试的编写。
+
+```ts
+// app/service/books.ts
+...
+export class BooksService {
+  private books: Model<any>;
+  constructor(books: Model<any>) {
+    this.books = books;
+  }
+
+  /**
+   * Create book
+   * @param params
+   */
+  protected async createBook (params: CreateBookDTO): Promise<object> {
+    try {
+      const result = await this.books.create({
+        name: params.name,
+        id: params.id,
+      });
+
+      // Do something
+
+      return result;
+    } catch (err) {
+      console.error(err);
+
+      throw err;
+    }
+  }
+
+  /**
+   * Query book by id
+   * @param id
+   */
+  protected findOneBookById (id: number) {
+    return this.books.findOne({ id });
+  }
+  ...
+}
+```
+
+### Model 数据层
+
+这一层链接我们的 DB，定义我们需要的 Schema，每个 Schema 都会映射到一个 MongoDB Collection 中。
+
+```ts
+// app/model/mongoose-db.ts
+import mongoose from 'mongoose';
+
+export default mongoose.connect(process.env.DB_URL, {
+  dbName: process.env.DB_NAME,
+  useUnifiedTopology: true,
+  useNewUrlParser: true,
+});
+```
+
+```ts
+// app/model/books.ts
+import mongoose from 'mongoose';
+
+export type BooksDocument = mongoose.Document & {
+  name: string,
+  id: number,
+  description: string,
+  createdAt: Date,
+};
+
+const booksSchema = new mongoose.Schema({
+  name: String,
+  id: { type: Number, index: true, unique: true },
+  description: String,
+  createdAt: { type: Date, default: Date.now },
+});
+
+// Note: OverwriteModelError: Cannot overwrite `Books` model once compiled. error
+export const books = mongoose.models.books || mongoose.model<BooksDocument>('books', booksSchema, process.env.DB_BOOKS_COLLECTION);
+
 ```
 
 ## 单元测试
@@ -214,13 +356,40 @@ npm i @types/lambda-tester @types/chai chai @types/mocha mocha ts-node -D
 
 ### lambda-tester
 
-https://github.com/vandium-io/lambda-tester
+以前我们可以使用 supertest 做接口测试，但是现在我们使用 AWS Lambda 编写的 FaaS 函数则不可以这样做，例如请求中的 event、context  是与云厂商是有关联的，这里推荐一个 [lambda-tester](https://github.com/vandium-io/lambda-tester
+) 可以实现我们需要的接口测试。
+
+**安装**
+
+```
+npm i lambda-tester @types/lambda-tester -D
+```
+
+**一个简单的应用示例**
+
+在接口的路径（path）上传入参数 id
+
+```ts
+lambdaTester(findOne)
+  .event({ pathParameters: { id: 25768396 } })
+  .expectResult((result: any) => {
+    ...
+  });
+```
 
 ### sinon
 
-例如，我们请求一个接口，接口内部通过读取 DB 获取数据，但是在做单元测试中我们如果不需要获取实际的对象，就需要使用 Stub/Mock 对我们的代码进行模拟操作。
+例如，我们请求一个接口，接口内部依赖于 DB 获取数据，但是在做单元测试中我们如果不需要获取实际的对象，就需要使用 Stub/Mock 对我们的代码进行模拟操作。
 
-在这个例子中，我会做一个接口测试，通过 sinon 来模拟 mongoose 的各种方法操作。
+**安装**
+
+```
+npm i sinon @types/sinon -D
+```
+
+**示例**
+
+以下例子中，我会做一个接口测试，通过 sinon 来模拟 mongoose 的各种方法操作。
 
 ```ts
 const s = sinon
@@ -230,39 +399,48 @@ s.expects('findOne')
   .atLeast(1)
   .atMost(3)
   .resolves(booksMock.findOne);
-  //.rejects(booksMock.findOneError);
+  // .rejects(booksMock.findOneError);
 
-return LambdaTester(find)
-  .event({})
-  .expectResult(function(result: any, additional: any) {
-    ...
-    s.verify();
-    s.restore();
-  });
+return lambdaTester(findOne)
+.event({ pathParameters: { id: 25768396 } })
+.expectResult((result: any) => {
+  // ...
+});
 ```
 以上对 booksMock 的 findOne 做了数据返回 Mock 操作，使用 s.resolves 方法模拟了 fulfilled 成功态，如需测试 rejected 失败态需指定 s.rejects 函数。
 
-s.atLeast(1) 最少调用一次。
+**一些常用方法**
 
-s.atMost(3) 最多调用三次。
+* s.atLeast(1) 最少调用一次。
+* s.atMost(3) 最多调用三次。
+* s.verify() 用来验证 findOne 这个方法是否满足上面的条件。
+* s.restore() 使用后复原该函数，适合于对某个函数的属性进行多次 stub 操作。
 
-s.verify() 用来验证 findOne 这个方法是否满足上面的条件。
+### 测试覆盖率
 
-s.restore() 使用后复原该函数，适合于对某个函数的属性进行多次 stub 操作。
+单元测试用来验证代码，测试覆盖率则可以验证测试用例，这里我们选择使用 [nyc](https://github.com/istanbuljs/nyc)。
 
-### 代码覆盖率工具 nyc
+**安装**
 
-https://github.com/istanbuljs/nyc
+```
+npm i nyc -D
+```
+
+**.nycrc.json 配置文件**
 
 ```json
 {
   "all": true, // 检测所有文件
   "report-dir": "./coverage", // 报告文件存放位置
-  "extension": [".ts"] // 除了 .js 之外应尝试的扩展列表
+  "extension": [".ts"], // 除了 .js 之外应尝试的扩展列表
+  "exclude": [ // 排除的一些文件
+    "coverage",
+    "tests"
+  ]
 }
 ```
 
-https://dev.to/paulasantamaria/testing-node-js-mongoose-with-an-in-memory-database-32np
+**测试报告**
 
 ## AWS Lambda 查看 Serverless 函数日志
 
