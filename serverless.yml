@@ -5,7 +5,6 @@ provider:
   runtime: nodejs12.x
   environment:
     NODE_ENV: dev
-    ENV_RELATIVE_PATH: ../
 
 plugins:
   - serverless-plugin-typescript 
