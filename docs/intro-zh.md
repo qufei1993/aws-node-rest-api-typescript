@@ -6,8 +6,9 @@
 
 * REST API with typescript
 * MongoDB Atlas data storage
-* Mocha unit tests
-* TSLint code inspection
+* Multi-environment management under Serverless
+* Mocha unit tests and lambda-tester interface test
+* AWS lambda function log view
 
 ## 先修知识
 
@@ -442,7 +443,13 @@ npm i nyc -D
 
 **测试报告**
 
+下图是对本项目做的一个测试用例覆盖率报告。
+
+![](./img/lcov-report.png)
+
 ## AWS Lambda 查看 Serverless 函数日志
+
+服务上线之后难免有时会需要通过日志来排查问题，AWS 中我们可以通过管理控制台和 CLI 本地化两种方式查看。
 
 ### AWS 管理控制台查看
 
