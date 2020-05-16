@@ -2,15 +2,31 @@
 
 这是一个对于 AWS Lambda Functions 的简单 REST API 项目，使用 TypeScript 语言编写，数据存储采用 MongoDB Atlas 云数据库，从编码到 AWS Lambda 下的单元测试，再到部署、日志调试完整的介绍了如何快速编写一个 FaaS 函数。
 
-## 本文你讲学习到
+## 本文你将学习到
 
 * REST API with typescript
 * MongoDB Atlas data storage
 * Mocha unit tests
 * TSLint code inspection
 
+## 先修知识
 
-## 目录结构
+在开始之前你需要知道 Serverless 是什么？及最基本的入门应用，在我的这篇文章 [使用 Node.js 快速开启 ServerLess Functions：入门实践指南](https://mp.weixin.qq.com/s/h8RsdDvkqqyI_WuD1vKcEw) 中介绍了 AWS Lambda 的基础应用。
+
+除此之外 19 年的 MongoDB 深圳年终大会上我投稿了文章 [使用 ServerLess, Nodejs, MongoDB Atlas cloud 构建 REST API](https://mp.weixin.qq.com/s/Ox9UcEVrb2Tfdl1B-Eh_Cw) 在这篇文章中你可以学习到，如何快速入门 MongoDB Atlas 云数据库，本篇文章也是在基于其基础之上使用 TypeScript 进行改造，同时也介绍了 AWS Lambda 下的 FaaS 应用，如何写单元测试和日志排查。
+
+## REST API 规划
+
+以下是我们将要完成的 REST API 规划，包含四个 CRUD 操作
+
+| CRUD  | API Routes  | Description
+|:------|:------------|:-----------
+| POST  | /books      | 增加一本书
+| GET   | /books      | 获取所有书籍列表
+| PUT   | /books/:id  | 根据 id 更新指定编号书籍
+| DELETE| /books/:id  | 根据 id 删除指定编号书籍
+
+## 目录结构定义
 
 ```
 ├── app                               
@@ -31,7 +47,7 @@
 ├── README.md
 ```
 
-## 插件
+## Serverless 相关插件
 
 ### serverless-offline
 
@@ -68,11 +84,11 @@ plugins:
   - serverless-offline
 ```
 
-## dotenv 多环境管理
+## 多配置环境管理
 
-实际业务中，都会存在测试、预发、生产等多种环境配置，那么在 ServerLess 中如何做环境切换呢？
+实际业务中，都会存在多套环境配置，例如：测试、预发、生产，那么在 Serverless 中如何做环境切换呢？
 
-**为云函数配置环境变量**
+### 为云函数配置环境变量
 
 修改 serverless.yml 文件为云函数配置环境变量，例如设置变量 NODE_ENV = dev
 
@@ -82,7 +98,7 @@ provider:
     NODE_ENV: dev
 ```
 
-**仅上传对应配置文件**
+### 配置文件上传时的 incldue 和 exclude
 
 修改 serverless.yml 文件，新增 exclude 和 incldue 配置，实现仅上传对应配置文件
 
@@ -90,7 +106,7 @@ provider:
 * include: 指定的配置文件会被上传
 
 ```yml
-provider:
+package:
   exclude:
     - config/.env.stg
     - config/.env.pro
@@ -98,7 +114,13 @@ provider:
     - config/.env.dev
 ```
 
-**dotenv 模块安装**
+> 注：因为 TS 最终编译只会编译 .ts 结尾的文件，默认情况下 config 里面指定的配置文件是不会上传的
+
+### Dotenv 模块
+
+默认情况如果我们设置了 .env 文件，dotenv 可以将此文件里设置的环境变量注入到 process.env 对象中，如果你有自己个性化定义的 .env 文件，在 dotenv 加载时指定 path 也可。
+
+**安装**
 
 ```
 npm i dotenv -S
@@ -107,13 +129,14 @@ npm i @types/dotenv-safe -D
 
 **项目中使用**
 
-通过提取云函数中环境变量，拼接路径 path 为 .env 指定文件路径
+通过提取上面云函数中设置的环境变量 NODE_ENV，拼接路径 path 为 .env 指定文件路径
 
 ```ts
 import dotenv from 'dotenv';
 import path from 'path';
+
 // 具体路径根据自己的项目配置来
-const dotenvPath = path.join(__dirname, '../../', `config/.env.${process.env.NODE_ENV}`);
+const dotenvPath = path.join(__dirname, '../', `config/.env.${process.env.NODE_ENV}`);
 dotenv.config({
   path: dotenvPath,
 });
@@ -123,6 +146,61 @@ dotenv.config({
 
 * github.com/motdotla/dotenv
 * serverlesscloud.cn/best-practice/2020-03-10-serverless-env
+
+## 编码实践
+
+### 路由指定
+
+Serverless.yml 文件中通过 handler 指定函数的访问路径，http.path 指定访问的路由，method 指定函数的请求方法。
+
+相当于传统应用开发中，我们这样来定义 ```router.get('books/:id', () => { ... })``` 一个路由
+
+```yml
+functions:
+  create:
+    handler: app/handler.create
+    events:
+      - http:
+          path: books
+          method: post
+  findOne:
+    handler: app/handler.findOne
+    events:
+      - http:
+          path: books/{id}
+          method: get
+```
+
+### handler 入口函数处理
+
+入口函数，利用函数的执行上下文重用，启动环境执行代码时初始化我们的数据库链接、加载环境变量。
+
+event、context 这些参数由 FaaS 平台提供，从 aws-lambda 中可以找到 Handler、Context 的声明，但是并没有找到关于 event 的。
+
+```ts
+// app/handler.ts
+import { Handler, Context } from 'aws-lambda';
+import dotenv from 'dotenv';
+import path from 'path';
+const dotenvPath = path.join(__dirname, '../', `config/.env.${process.env.NODE_ENV}`);
+dotenv.config({
+  path: dotenvPath,
+});
+
+import { books } from './model';
+import { BooksController } from './contrller/books';
+const booksController = new BooksController(books);
+
+export const create: Handler = (event: any, context: Context) => {
+  return booksController.create(event, context);
+};
+
+export const findOne: Handler = (event: any, context: Context) => {
+  return booksController.findOne(event, context);
+};
+
+...
+```
 
 ## 单元测试
 
