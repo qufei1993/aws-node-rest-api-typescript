@@ -447,6 +447,71 @@ npm i nyc -D
 
 ![](./img/lcov-report.png)
 
+## Deploy And Usage
+
+### 本地部署测试
+
+* 运行 ```npm install``` 安装需要的依赖
+* 运行 ```npm run local``` 实际使用的是 serverless offline 在本地开启测试。 
+
+### 在 AWS 上的部署, 运行:
+
+```
+$ npm run deploy
+# or
+$ serverless deploy
+```
+
+期望的结果应该如下所示:
+
+```
+Serverless: Compiling with Typescript...
+Serverless: Using local tsconfig.json
+Serverless: Typescript compiled.
+Serverless: Packaging service...
+Serverless: Excluding development dependencies...
+Serverless: Uploading CloudFormation file to S3...
+Serverless: Uploading artifacts...
+Serverless: Uploading service aws-node-rest-api-typescript.zip file to S3 (1.86 MB)...
+Serverless: Validating template...
+Serverless: Updating Stack...
+Serverless: Checking Stack update progress...
+......................................
+Serverless: Stack update finished...
+Service Information
+service: aws-node-rest-api-typescript
+stage: dev
+region: us-east-1
+stack: aws-node-rest-api-typescript-dev
+resources: 32
+api keys:
+  None
+endpoints:
+  POST - https://xxxxxxxxxxx.execute-api.us-east-1.amazonaws.com/dev/books
+  PUT - https://xxxxxxxxxxx.execute-api.us-east-1.amazonaws.com/dev/books/{id}
+  GET - https://xxxxxxxxxxx.execute-api.us-east-1.amazonaws.com/dev/books
+  GET - https://xxxxxxxxxxx.execute-api.us-east-1.amazonaws.com/dev/books/{id}
+  DELETE - https://xxxxxxxxxxx.execute-api.us-east-1.amazonaws.com/dev/books/{id}
+functions:
+  create: aws-node-rest-api-typescript-dev-create
+  update: aws-node-rest-api-typescript-dev-update
+  find: aws-node-rest-api-typescript-dev-find
+  findOne: aws-node-rest-api-typescript-dev-findOne
+  deleteOne: aws-node-rest-api-typescript-dev-deleteOne
+layers:
+  None
+Serverless: Removing old service artifacts from S3...
+Serverless: Run the "serverless" command to setup monitoring, troubleshooting and testing.
+```
+
+### Usage
+
+使用 curl 之类的工具直接向端点发送一个 HTTP 请求。
+
+```
+curl https://xxxxxxxxx.execute-api.us-east-1.amazonaws.com/dev/books
+```
+
 ## AWS Lambda 查看 Serverless 函数日志
 
 服务上线之后难免有时会需要通过日志来排查问题，AWS 中我们可以通过管理控制台和 CLI 本地化两种方式查看。
@@ -497,3 +562,4 @@ $ aws lambda invoke --function-name aws-node-rest-api-typescript-dev-find out-lo
 # base64 解码日志
 $ aws lambda invoke --function-name aws-node-rest-api-typescript-dev-find out-logger.json --log-type Tail --query 'LogResult' --output text |  base64 -d
 ```
+
