@@ -1,4 +1,4 @@
-# 使用 TypeScript, MongoDB atlas 开发 ServerLess 后端 API
+# 使用 TypeScript 快速开发 Serverless REST API
 
 这是一个对于 AWS Lambda Functions 的简单 REST API 项目，使用 TypeScript 语言编写，数据存储采用 MongoDB Atlas 云数据库，从编码到 AWS Lambda 下的单元测试，再到部署、日志调试完整的介绍了如何快速编写一个 FaaS 函数。
 
@@ -563,3 +563,20 @@ $ aws lambda invoke --function-name aws-node-rest-api-typescript-dev-find out-lo
 $ aws lambda invoke --function-name aws-node-rest-api-typescript-dev-find out-logger.json --log-type Tail --query 'LogResult' --output text |  base64 -d
 ```
 
+## Github 
+
+本示例项目，你可以在 Github 找到 Clone 下来进行学习。
+
+仓库：https://github.com/Q-Angelo/aws-node-rest-api-typescript <-- 戳戳 Star
+
+## 总结
+
+Serverless 下的云函数开发，可以使我们更关注于业务本身，从上面示例中也可以看到我们的业务代码并没有什么区别，更多的是避免了运维、后期的扩所容等一些成本问题，还有一点不同的是入口函数，传统的应用开发我们可以通过 HTTP 的 Request、Response 做处理和响应，例如在 AWS Lambda 下我们则是通过 event、context 来处理请求和一些上下文信息。
+
+FaaS 这一层应尽可能的轻量，更多的是业务逻辑的处理，对于数据库这种是很难做到动态化、自动伸缩，但是如果每次冷启动都去创建链接对于数据库本身也会造成压力，一方面可以选择云平台提供的，另一方面也可以自己数据库 BaaS 化，经过包装进行调用。
+
+本文也是自己的一个学习总结，欢迎一起讨论，可以在公众号「Nodejs技术栈」后台找到我。
+
+---------
+
+**作者简介**：五月君，Nodejs Developer，慕课网认证作者，热爱技术、喜欢分享的 90 后青年，欢迎关注[「Nodejs技术栈」](https://nodejsred.oss-cn-shanghai.aliyuncs.com/node_roadmap_wx.jpg?x-oss-process=style/may)和 Github 开源项目 [https://www.nodejs.red](https://www.nodejs.red)
